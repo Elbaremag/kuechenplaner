@@ -1,0 +1,106 @@
+name: Supabase Backup
+
+# Wöchentliche, verschlüsselte Sicherung der Datenbank (und der Bilder).
+# Ablegen unter: .github/workflows/supabase-backup.yml
+#
+# Benötigte Repository-Secrets:
+#   SUPABASE_DB_URL             Verbindungs-URI (Supabase: Connect -> Session pooler, mit Passwort)
+#   BACKUP_PASSPHRASE           frei gewähltes, langes Passwort zum Verschlüsseln (gut aufbewahren!)
+# Zusätzlich für die Bilder (ohne diese beiden wird nur die Datenbank gesichert):
+#   SUPABASE_URL                z. B. https://abcdxyz.supabase.co
+#   SUPABASE_SERVICE_ROLE_KEY   Supabase: Project Settings -> API Keys -> service_role (GEHEIM, nur als Secret!)
+
+on:
+  schedule:
+    - cron: "43 3 * * 0"   # sonntags 03:43 UTC
+  workflow_dispatch: {}
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: PostgreSQL-Client installieren
+        run: |
+          # Version muss zur Supabase-Datenbank passen (Dashboard -> Settings -> Infrastructure). Bei Bedarf 15/16/17 anpassen.
+          sudo apt-get update
+          sudo apt-get install -y postgresql-common
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
+          sudo apt-get install -y postgresql-client-17
+
+      - name: Datenbank sichern
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+        run: |
+          set -euo pipefail
+          if [ -z "${SUPABASE_DB_URL:-}" ] || [ -z "${BACKUP_PASSPHRASE:-}" ]; then
+            echo "Secrets SUPABASE_DB_URL / BACKUP_PASSPHRASE fehlen."; exit 1
+          fi
+          mkdir out
+
+          # 1) Eigene Tabellen: Struktur, Policies und Daten
+          pg_dump "$SUPABASE_DB_URL" --schema=public --no-owner --no-privileges \
+            -Fc -f out/public.dump
+
+          # 2) Benutzerkonten (nur Daten), damit Anmeldungen wiederherstellbar sind
+          pg_dump "$SUPABASE_DB_URL" --data-only --no-owner \
+            -t auth.users -t auth.identities -Fc -f out/auth.dump
+
+          # Plausibilitätscheck: Dump muss lesbar und nicht leer sein
+          pg_restore -l out/public.dump | grep -q "TABLE DATA" || { echo "Dump enthält keine Daten."; exit 1; }
+
+      - name: Bilder sichern (Storage)
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          set -euo pipefail
+          if [ -z "${SUPABASE_URL:-}" ] || [ -z "${SUPABASE_SERVICE_ROLE_KEY:-}" ]; then
+            echo "::warning::SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY fehlen - die Bilder werden NICHT mitgesichert."
+            exit 0
+          fi
+          base="${SUPABASE_URL%/}/storage/v1"
+          # Alter service_role-Key (eyJ...) braucht zusätzlich Authorization, neuer secret-Key (sb_secret_...) nur apikey.
+          H=(-H "apikey: $SUPABASE_SERVICE_ROLE_KEY")
+          case "$SUPABASE_SERVICE_ROLE_KEY" in eyJ*) H+=(-H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY");; esac
+          mkdir -p out/images
+          for prefix in recipes avatars; do
+            offset=0
+            while true; do
+              page=$(curl -fsS -X POST "$base/object/list/images" \
+                "${H[@]}" \
+                -H "Content-Type: application/json" \
+                -d "{\"prefix\":\"$prefix\",\"limit\":100,\"offset\":$offset}")
+              n=$(echo "$page" | jq 'length')
+              [ "$n" -eq 0 ] && break
+              mkdir -p "out/images/$prefix"
+              echo "$page" | jq -r '.[] | select(.id != null) | .name' | while IFS= read -r name; do
+                curl -fsS "$base/object/images/$prefix/$name" \
+                  "${H[@]}" \
+                  -o "out/images/$prefix/$name"
+              done
+              offset=$((offset + n))
+              [ "$n" -lt 100 ] && break
+            done
+          done
+          echo "Bilder gesichert: $(find out/images -type f | wc -l)"
+
+      - name: Packen und verschlüsseln
+        env:
+          BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+        run: |
+          set -euo pipefail
+          stamp=$(date -u +%Y-%m-%d)
+          tar -czf "kombuese-$stamp.tar.gz" -C out .
+          gpg --batch --yes --pinentry-mode loopback --passphrase "$BACKUP_PASSPHRASE" \
+            --symmetric --cipher-algo AES256 -o "kombuese-$stamp.tar.gz.gpg" "kombuese-$stamp.tar.gz"
+          rm -rf out "kombuese-$stamp.tar.gz"
+          ls -l
+
+      - name: Verschlüsselte Sicherung hochladen
+        uses: actions/upload-artifact@v4
+        with:
+          name: kombuese-backup
+          path: kombuese-*.tar.gz.gpg
+          retention-days: 90
+          if-no-files-found: error
