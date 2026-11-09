@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Kombüse — Küchenplaner</title>
+<meta name="theme-color" content="#4F46E5">
+<meta name="description" content="Gemeinsame Küchen- und Einkaufsplanung">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Kombüse">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+
+<!-- ============ LADEN ============ -->
+<div id="loadingScreen" class="screen-center" style="display:flex;">
+  <div style="text-align:center; color:var(--ink-soft);">
+    <svg width="44" height="44" viewBox="0 0 56 56" fill="none" aria-hidden="true">
+      <path d="M20 13c-3 3-3 6 0 9M28 11c-3 3-3 6 0 9M36 13c-3 3-3 6 0 9" stroke="var(--accent)" stroke-width="2.4" stroke-linecap="round"/>
+      <path d="M14 27h28v9c0 6.6-6.3 12-14 12s-14-5.4-14-12v-9z" stroke="var(--ink)" stroke-width="2.4" stroke-linejoin="round"/>
+      <line x1="12" y1="27" x2="44" y2="27" stroke="var(--accent)" stroke-width="3" stroke-linecap="round"/>
+    </svg>
+    <div id="loadingText" style="margin-top:10px; font-size:14px;">Kombüse wird geladen …</div>
+  </div>
+</div>
+
+<!-- ============ LOGIN ============ -->
+<div id="loginScreen" class="screen-center">
+  <div class="login-card">
+    <svg class="brand-mark" width="52" height="52" viewBox="0 0 56 56" fill="none" aria-hidden="true">
+      <path d="M20 13c-3 3-3 6 0 9M28 11c-3 3-3 6 0 9M36 13c-3 3-3 6 0 9" stroke="var(--accent)" stroke-width="2.2" stroke-linecap="round"/>
+      <path d="M14 27h28v9c0 6.6-6.3 12-14 12s-14-5.4-14-12v-9z" stroke="var(--ink)" stroke-width="2.2" stroke-linejoin="round"/>
+      <path d="M14 30h-4.5a3.2 3.2 0 000 6.4H14M42 30h4.5a3.2 3.2 0 010 6.4H42" stroke="var(--ink)" stroke-width="2.2" stroke-linecap="round"/>
+      <line x1="12" y1="27" x2="44" y2="27" stroke="var(--accent)" stroke-width="2.8" stroke-linecap="round"/>
+    </svg>
+    <div class="mark">Kombüse</div>
+    <h1>Küchenplaner</h1>
+    <p class="sub">Melde dich an, um Projekte und Zutatenlisten zu bearbeiten.</p>
+    <form onsubmit="doLogin(); return false;">
+      <div class="field">
+        <label for="loginEmail">E-Mail oder Benutzername</label>
+        <input type="text" id="loginEmail" autocomplete="username" required>
+      </div>
+      <div class="field">
+        <label for="loginPass">Passwort</label>
+        <input type="password" id="loginPass" autocomplete="current-password" required>
+      </div>
+      <div id="loginError" class="login-error" style="display:none;"></div>
+      <div id="loginInfo" class="login-info" style="display:none;"></div>
+      <button class="btn" style="width:100%" type="submit" id="loginBtn">Anmelden</button>
+    </form>
+    <div style="display:flex; justify-content:space-between; flex-wrap:wrap;">
+      <button class="link-btn" type="button" onclick="forgotPassword()">Passwort vergessen?</button>
+      <button class="link-btn" type="button" onclick="openRegisterDialog()">Konto registrieren</button>
+    </div>
+    <div class="login-hint">Neue Konten warten nach der Registrierung auf Freischaltung durch einen Admin.</div>
+  </div>
+</div>
+
+<dialog id="registerDialog">
+  <div class="dialog-head"><h3>Konto registrieren</h3></div>
+  <div class="dialog-body">
+    <div class="field"><label for="regName">Name</label><input id="regName" type="text"></div>
+    <div class="field"><label for="regEmail">E-Mail</label><input id="regEmail" type="email" autocomplete="username"></div>
+    <div class="field" style="margin-bottom:0;"><label for="regPass">Passwort (mindestens 6 Zeichen)</label><input id="regPass" type="password" autocomplete="new-password" onkeydown="if(event.key==='Enter')submitRegister()"></div>
+    <div id="regError" class="login-error" style="display:none; margin-top:14px;"></div>
+  </div>
+  <div class="dialog-actions">
+    <button class="btn secondary" onclick="registerDialog.close()">Abbrechen</button>
+    <button class="btn" id="regBtn" onclick="submitRegister()">Registrieren</button>
+  </div>
+</dialog>
+
+<!-- ============ WARTET AUF FREISCHALTUNG ============ -->
+<div id="pendingScreen" class="screen-center">
+  <div class="login-card">
+    <div class="mark">Kombüse</div>
+    <h1 style="font-size:22px;">Noch nicht freigeschaltet</h1>
+    <p class="sub" style="margin-top:8px;">Dein Konto ist angelegt, hat aber noch keinen Zugriff. Bitte den Admin, dich freizuschalten, und prüfe danach erneut.</p>
+    <div style="display:flex; gap:8px; flex-wrap:wrap;">
+      <button class="btn" onclick="recheckAccess()">Erneut prüfen</button>
+      <button class="btn secondary" onclick="doLogout()">Abmelden</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ APP ============ -->
+<div id="app">
+  <div id="mobileTopbar" class="mobile-topbar">
+    <button class="menu-btn" onclick="toggleMobileNav()" aria-label="Menü öffnen">☰</button>
+    <div class="sidebar-brand">
+      <svg width="20" height="20" viewBox="0 0 56 56" fill="none" aria-hidden="true">
+        <path d="M20 13c-3 3-3 6 0 9M28 11c-3 3-3 6 0 9M36 13c-3 3-3 6 0 9" stroke="var(--accent)" stroke-width="2.6" stroke-linecap="round"/>
+        <path d="M14 27h28v9c0 6.6-6.3 12-14 12s-14-5.4-14-12v-9z" stroke="var(--ink)" stroke-width="2.6" stroke-linejoin="round"/>
+        <line x1="12" y1="27" x2="44" y2="27" stroke="var(--accent)" stroke-width="3.2" stroke-linecap="round"/>
+      </svg>
+      <div class="mark">Kombüse</div>
+    </div>
+    <div style="width:34px;"></div>
+  </div>
+  <div id="sidebarBackdrop" class="sidebar-backdrop" onclick="closeMobileNav()"></div>
+
+  <div id="sidebar">
+    <button class="menu-close" onclick="closeMobileNav()" aria-label="Menü schließen">✕</button>
+    <div>
+      <div class="sidebar-brand">
+        <svg width="24" height="24" viewBox="0 0 56 56" fill="none" aria-hidden="true">
+          <path d="M20 13c-3 3-3 6 0 9M28 11c-3 3-3 6 0 9M36 13c-3 3-3 6 0 9" stroke="var(--accent)" stroke-width="2.6" stroke-linecap="round"/>
+          <path d="M14 27h28v9c0 6.6-6.3 12-14 12s-14-5.4-14-12v-9z" stroke="var(--ink)" stroke-width="2.6" stroke-linejoin="round"/>
+          <path d="M14 30h-4.5a3.2 3.2 0 000 6.4H14M42 30h4.5a3.2 3.2 0 010 6.4H42" stroke="var(--ink)" stroke-width="2.6" stroke-linecap="round"/>
+          <line x1="12" y1="27" x2="44" y2="27" stroke="var(--accent)" stroke-width="3.2" stroke-linecap="round"/>
+        </svg>
+        <div class="mark">Kombüse</div>
+      </div>
+      <h2 class="title">Küchenplaner</h2>
+    </div>
+    <div class="side-section-label">Projekte</div>
+    <div id="projectList"></div>
+    <div id="newProjectSlot"></div>
+    <div class="side-section-label">Bibliothek</div>
+    <button class="project-item" id="recipesNavBtn" onclick="openRecipesView()">📖 Rezepte</button>
+    <div class="sidebar-spacer"></div>
+    <div class="user-box">
+      <div class="user-row">
+        <div class="avatar" id="curUserAvatar"></div>
+        <div>
+          <div class="name" id="curUserName"></div>
+          <span class="role-badge" id="curUserRole"></span>
+        </div>
+      </div>
+      <div class="role-desc" id="curUserRoleDesc"></div>
+      <div id="liveStatus" style="font-size:11.5px; margin-top:8px; color:var(--ink-faint);"></div>
+      <div style="margin-top:12px; display:flex; gap:8px; flex-wrap:wrap;">
+        <button class="btn secondary small" id="adminBtn" onclick="openUserAdmin()" style="display:none;">Verwaltung</button>
+        <button class="btn secondary small" onclick="openProfileDialog()">Profil</button>
+        <button class="btn secondary small" onclick="doLogout()">Abmelden</button>
+        <button class="btn secondary small" id="installBtn" onclick="installApp()" style="display:none;">App installieren</button>
+      </div>
+      <div class="meta" id="versionLine" style="margin-top:12px; display:flex; align-items:center; gap:6px;"></div>
+    </div>
+  </div>
+
+  <div id="main"></div>
+</div>
+
+<!-- ============ DIALOGE ============ -->
+<dialog id="mergeDialog">
+  <div class="dialog-head"><h3>Zeilen zusammenführen</h3></div>
+  <div class="dialog-body" id="mergeBody"></div>
+  <div class="dialog-actions">
+    <button class="btn secondary" onclick="mergeDialog.close()">Abbrechen</button>
+    <button class="btn" id="mergeYes" onclick="runMerge()">Zusammenführen</button>
+  </div>
+</dialog>
+
+<dialog id="supplierDialog">
+  <div class="dialog-head"><h3>Einkaufsliste bearbeiten</h3></div>
+  <div class="dialog-body">
+    <div class="field"><label for="sdName">Name</label><input id="sdName" type="text" readonly></div>
+    <div class="field" style="margin-bottom:0;"><label for="sdNote">Notiz</label>
+      <textarea id="sdNote" rows="4" style="width:100%; padding:8px 10px; border:1px solid var(--line); background:var(--paper); color:var(--ink); font-family:inherit; font-size:14px;" placeholder="z. B. Öffnungszeiten, Ansprechpartner, Abholort …"></textarea>
+    </div>
+    <div class="meta" style="margin-top:8px;">Der Name kann nicht geändert werden, weil er in den Zutaten gespeichert ist.</div>
+  </div>
+  <div class="dialog-actions">
+    <button class="btn secondary" onclick="supplierDialog.close()">Abbrechen</button>
+    <button class="btn" onclick="saveSupplierDialog()">Speichern</button>
+  </div>
+</dialog>
+
+<dialog id="categoryRenameDialog">
+  <div class="dialog-head"><h3>Kategorie umbenennen</h3></div>
+  <div class="dialog-body">
+    <div class="field" style="margin-bottom:0;"><label for="crName">Neuer Name</label><input id="crName" type="text" onkeydown="if(event.key==='Enter')saveCategoryRename()"></div>
+    <div class="meta" id="crInfo" style="margin-top:8px;"></div>
+  </div>
+  <div class="dialog-actions">
+    <button class="btn secondary" onclick="categoryRenameDialog.close()">Abbrechen</button>
+    <button class="btn" onclick="saveCategoryRename()">Umbenennen</button>
+  </div>
+</dialog>
+
+<dialog id="newProjectDialog">
+  <div class="dialog-head"><h3>Neues Projekt</h3></div>
+  <div class="dialog-body">
+    <div class="field"><label for="npName">Name</label><input id="npName" type="text" placeholder="z. B. Herbstfahrt 2026"></div>
+    <div class="field" style="margin-bottom:0;"><label for="npDesc">Beschreibung (optional)</label><input id="npDesc" type="text" placeholder="Kurze Beschreibung"></div>
+  </div>
+  <div class="dialog-actions">
+    <button class="btn secondary" onclick="newProjectDialog.close()">Abbrechen</button>
+    <button class="btn" onclick="createProject()">Projekt anlegen</button>
+  </div>
+</dialog>
+
+<dialog id="editProjectDialog">
+  <div class="dialog-head"><h3>Projekt bearbeiten</h3></div>
+  <div class="dialog-body">
+    <div class="field"><label for="epName">Name</label><input id="epName" type="text"></div>
+    <div class="field"><label for="epDesc">Beschreibung (optional)</label><input id="epDesc" type="text"></div>
+    <div class="field"><label for="epPersons">Personenzahl (für den Portionsrechner, optional)</label><input id="epPersons" type="number" min="1" max="100000" step="1" placeholder="z. B. 30"></div>
+    <div style="display:flex; gap:10px; flex-wrap:wrap;">
+      <div class="field" style="flex:1; min-width:150px;"><label for="epStart">Startdatum (optional)</label><input id="epStart" type="date"></div>
+      <div class="field" style="flex:1; min-width:150px;"><label for="epRemind">Erinnerung … Tage vorher</label><input id="epRemind" type="number" min="0" max="90" step="1" placeholder="0 = keine"></div>
+    </div>
+    <div id="epFeatures" style="padding-top:14px; border-top:1px solid var(--line);">
+      <div class="meta" style="margin:0 0 8px;">Funktionen in diesem Projekt</div>
+      <label style="display:flex; align-items:center; gap:8px; font-size:14px; margin-bottom:8px;"><input type="checkbox" id="epFeatCategories"> Kategorien (Einkaufsreihenfolge)</label>
+      <label style="display:flex; align-items:center; gap:8px; font-size:14px; margin-bottom:8px;"><input type="checkbox" id="epFeatRecipes"> Rezeptbibliothek (Rezepte in dieses Projekt übernehmen)</label>
+      <label style="display:flex; align-items:center; gap:8px; font-size:14px; margin-bottom:8px;"><input type="checkbox" id="epFeatBulk"> Massenbearbeitung (Zutaten auswählen und gemeinsam ändern)</label>
+      <div class="meta">Ausgeblendete Funktionen löschen keine Daten, sie sind nur nicht sichtbar.</div>
+    </div>
+    <div class="meta" id="epMigrationHint" style="display:none; margin-top:10px; color:var(--warn);">Diese Einstellungen sind noch nicht eingerichtet. Bitte einmal <b>supabase-etappe3.sql</b> im Supabase SQL Editor ausführen.</div>
+  </div>
+  <div class="dialog-actions">
+    <button class="btn secondary" onclick="editProjectDialog.close()">Abbrechen</button>
+    <button class="btn" onclick="saveEditProject()">Speichern</button>
+  </div>
+</dialog>
+
+<dialog id="editListDialog">
+  <div class="dialog-head"><h3>Liste bearbeiten</h3></div>
+  <div class="dialog-body">
+    <div class="field"><label for="elName">Name</label><input id="elName" type="text"></div>
+    <div class="field" style="margin-bottom:0;"><label for="elNote">Notiz (optional)</label><input id="elNote" type="text" placeholder="z. B. Treffpunkt, Uhrzeit …" onkeydown="if(event.key==='Enter')saveEditList()"></div>
+    <div id="elPortions" style="margin-top:16px; padding-top:14px; border-top:1px solid var(--line);">
+      <div class="meta" style="margin:0 0 8px;">Portionsrechner</div>
+      <div style="display:flex; gap:10px; flex-wrap:wrap;">
+        <div class="field" style="flex:1; min-width:150px; margin-bottom:0;"><label for="elBase">Mengen gelten für … Portionen</label><input id="elBase" type="number" min="1" max="100000" step="1" placeholder="z. B. 4" oninput="updatePortionInfo()"></div>
+        <div class="field" style="flex:1; min-width:150px; margin-bottom:0;"><label for="elServings">Benötigt für … Portionen</label><input id="elServings" type="number" min="1" max="100000" step="1" placeholder="leer = wie Projekt" oninput="updatePortionInfo()"></div>
+      </div>
+      <div class="meta" id="elPortionInfo" style="margin-top:8px;"></div>
+      <button class="btn secondary small" type="button" id="elBake" onclick="bakeListScaling()" style="margin-top:8px;">Mengen jetzt fest umrechnen</button>
+    </div>
+  </div>
+  <div class="dialog-actions">
+    <button class="btn secondary" onclick="editListDialog.close()">Abbrechen</button>
+    <button class="btn" onclick="saveEditList()">Speichern</button>
+  </div>
+</dialog>
+
+<dialog id="copyListDialog">
+  <div class="dialog-head"><h3>Liste kopieren</h3></div>
+  <div class="dialog-body">
+    <p style="font-size:13px; color:var(--ink-soft); margin:0 0 14px;">Kopiert die Liste samt Zutaten (ohne „gekauft“-Häkchen) — auch in ein anderes Projekt, z. B. als Vorlage.</p>
+    <div class="field"><label for="clName">Name der Kopie</label><input id="clName" type="text"></div>
+    <div class="field" style="margin-bottom:0;"><label for="clProject">In Projekt</label><select id="clProject"></select></div>
+  </div>
+  <div class="dialog-actions">
+    <button class="btn secondary" onclick="copyListDialog.close()">Abbrechen</button>
+    <button class="btn" onclick="saveCopyList()">Kopieren</button>
+  </div>
+</dialog>
+
+<dialog id="recipeDialog" class="wide">
+  <div class="dialog-head"><h3 id="recipeDialogTitle">Rezept anlegen</h3></div>
+  <div class="dialog-body">
+    <div class="field">
+      <label for="rcName">Name</label><input id="rcName" type="text" placeholder="z. B. Chili sin Carne"></div>
+    <div class="add-row-form" style="margin:0 0 16px;">
+      <div class="field f-unit" style="margin:0;"><label>Art</label><input id="rcCategory" type="text" list="recipeTypeOptions" placeholder="z. B. Hauptgericht"></div>
+      <div class="field f-unit" style="margin:0;"><label>Portionen</label><input id="rcServings" type="number" min="1" step="1" placeholder="z. B. 4"></div>
+      <div class="field f-supplier" style="margin:0;"><label>Notiz (optional)</label><input id="rcNote" type="text" placeholder="Quelle, Hinweise …"></div>
+    </div>
+    <div class="field">
+      <label>Bild (optional)</label>
+      <div id="rcImagePreviewWrap" style="display:none; margin-bottom:8px;">
+        <img id="rcImagePreview" style="max-width:160px; max-height:160px; display:block; border:1px solid var(--line);">
+        <button type="button" class="link-btn" style="padding-top:6px;" onclick="removeRecipeImage()">Bild entfernen</button>
+      </div>
+      <input id="rcImageFile" type="file" accept="image/*" onchange="handleRecipeImage(event)">
+    </div>
+    <div class="meta" style="margin-bottom:6px;">Zutaten</div>
+    <div id="rcRows"></div>
+    <button class="btn secondary small" type="button" onclick="addRecipeRow()" style="margin-top:6px;">+ Zutat</button>
+    <div class="meta" style="margin-top:14px;">Zeilen im Format „Menge Einheit Bezeichnung“ einfügen — eine Zutat pro Zeile:</div>
+    <textarea id="rcPaste" rows="3" style="width:100%; margin-top:6px; padding:8px 10px; border:1px solid var(--line); background:var(--paper); color:var(--ink); font-family:inherit; font-size:13.5px;" placeholder="400 g Hackfleisch&#10;1 Dose Kidneybohnen&#10;2 Zwiebeln"></textarea>
+    <button class="btn secondary small" type="button" onclick="importPastedIngredients()" style="margin-top:6px;">Einfügen übernehmen</button>
+    <div class="field" style="margin-top:16px; margin-bottom:0;">
+      <label for="rcInstructions">Anleitung (optional)</label>
+      <textarea id="rcInstructions" rows="6" style="width:100%; padding:8px 10px; border:1px solid var(--line); background:var(--paper); color:var(--ink); font-family:inherit; font-size:13.5px;" placeholder="Zubereitungsschritte, ein Schritt pro Zeile …"></textarea>
+    </div>
+  </div>
+  <div class="dialog-actions">
+    <button class="btn secondary" onclick="recipeDialog.close()">Abbrechen</button>
+    <button class="btn" onclick="saveRecipe()">Speichern</button>
+  </div>
+</dialog>
+
+<dialog id="addRecipeToProjectDialog">
+  <div class="dialog-head"><h3>Rezept zu Projekt hinzufügen</h3></div>
+  <div class="dialog-body">
+    <p style="font-size:13px; color:var(--ink-soft); margin:0 0 14px;">Legt eine neue Liste mit allen Zutaten des Rezepts an.</p>
+    <div class="field"><label for="rpListName">Name der neuen Liste</label><input id="rpListName" type="text"></div>
+    <div class="field" id="rpServingsField" style="display:none;">
+      <label for="rpServings">Für wie viele Personen? (Mengen werden hochgerechnet)</label>
+      <input id="rpServings" type="number" min="1" step="1">
+    </div>
+    <div class="field" style="margin-bottom:0;"><label for="rpProject">In Projekt</label><select id="rpProject" onchange="onRecipeProjectChange()"></select></div>
+  </div>
+  <div class="dialog-actions">
+    <button class="btn secondary" onclick="addRecipeToProjectDialog.close()">Abbrechen</button>
+    <button class="btn" onclick="saveAddRecipeToProject()">Hinzufügen</button>
+  </div>
+</dialog>
+
+<dialog id="newSupplierInlineDialog">
+  <div class="dialog-head"><h3>Neue Einkaufsliste</h3></div>
+  <div class="dialog-body">
+    <div class="field" style="margin-bottom:0;"><label for="newSupplierInlineName">Name</label><input id="newSupplierInlineName" type="text" onkeydown="if(event.key==='Enter')saveNewSupplierInline()"></div>
+    <div class="field" style="margin:12px 0 0;"><label for="newSupplierInlineNote">Notiz (optional)</label><input id="newSupplierInlineNote" type="text" placeholder="z. B. Öffnungszeiten, Abholort" onkeydown="if(event.key==='Enter')saveNewSupplierInline()"></div>
+  </div>
+  <div class="dialog-actions">
+    <button class="btn secondary" onclick="cancelNewSupplierInline()">Abbrechen</button>
+    <button class="btn" onclick="saveNewSupplierInline()">Anlegen</button>
+  </div>
+</dialog>
+
+<dialog id="editItemDialog">
+  <div class="dialog-head"><h3>Zutat bearbeiten</h3></div>
+  <div class="dialog-body">
+    <div class="field"><label for="eiName">Bezeichnung</label><input id="eiName" type="text"></div>
+    <div class="field"><label for="eiQty">Anzahl</label><input id="eiQty" type="number" step="any" min="0"></div>
+    <div class="field"><label for="eiUnit">Einheit</label><input id="eiUnit" type="text" list="unitOptions"></div>
+    <div class="field"><label for="eiSupplier">Einkaufsliste</label><select id="eiSupplier" onchange="handleSupplierSelect(this)"></select></div>
+    <div class="field"><label for="eiCategory">Kategorie (für den Einkauf)</label><input id="eiCategory" type="text" list="categoryOptions"></div>
+    <div class="field" style="margin-bottom:0;"><label for="eiNote">Notiz (optional)</label><input id="eiNote" type="text" placeholder="z. B. bitte Bio"></div>
+  </div>
+  <div class="dialog-actions">
+    <button class="btn secondary" onclick="editItemDialog.close()">Abbrechen</button>
+    <button class="btn" onclick="saveEditItem()">Speichern</button>
+  </div>
+</dialog>
+
+<dialog id="confirmDialog">
+  <div class="dialog-head"><h3 id="confirmTitle">Bestätigen</h3></div>
+  <div class="dialog-body" id="confirmBody"></div>
+  <div class="dialog-actions">
+    <button class="btn secondary" onclick="confirmDialog.close()">Abbrechen</button>
+    <button class="btn danger" id="confirmYes" onclick="runConfirm()">Löschen</button>
+  </div>
+</dialog>
+
+<dialog id="passwordDialog">
+  <div class="dialog-head"><h3 id="pwTitle">Passwort ändern</h3></div>
+  <div class="dialog-body">
+    <div class="field" style="margin-bottom:0;">
+      <label for="pwInput">Neues Passwort (mindestens 6 Zeichen)</label>
+      <input id="pwInput" type="password" autocomplete="new-password" onkeydown="if(event.key==='Enter')savePassword()">
+    </div>
+  </div>
+  <div class="dialog-actions">
+    <button class="btn secondary" id="pwCancel" onclick="passwordDialog.close()">Abbrechen</button>
+    <button class="btn" onclick="savePassword()">Speichern</button>
+  </div>
+</dialog>
+
+<dialog id="profileDialog">
+  <div class="dialog-head"><h3>Mein Profil</h3></div>
+  <div class="dialog-body">
+    <div style="display:flex; align-items:center; gap:14px; margin-bottom:18px;">
+      <div class="avatar" id="pfAvatarPreview" style="width:56px; height:56px; font-size:18px;"></div>
+      <div>
+        <input id="pfAvatarFile" type="file" accept="image/*" onchange="handleProfileAvatar(event)">
+        <div><button type="button" class="link-btn" style="padding-top:4px;" id="pfAvatarRemoveBtn" onclick="removeProfileAvatar()">Bild entfernen</button></div>
+      </div>
+    </div>
+    <div class="field"><label for="pfName">Name</label><input id="pfName" type="text"></div>
+    <div class="field"><label>Anmeldung</label><input type="text" id="pfLoginInfo" disabled></div>
+    <div class="field"><label for="pfSession">Angemeldet bleiben (nur dieses Gerät)</label><select id="pfSession" onchange="setSessionPref(this.value)"></select>
+      <div class="meta" style="margin-top:6px;">Die Dauer zählt ab deiner letzten Aktivität. Auf gemeinsam genutzten Geräten besser „Bis zum Schließen“ wählen.</div></div>
+    <div class="meta" id="pfAppVersion" style="margin:0;"></div>
+  </div>
+  <div class="dialog-actions">
+    <button class="btn secondary" onclick="profileDialog.close(); openPasswordDialog(false)">Passwort ändern</button>
+    <button class="btn secondary" onclick="profileDialog.close()">Abbrechen</button>
+    <button class="btn" onclick="saveProfile()">Speichern</button>
+  </div>
+</dialog>
+
+<dialog id="exportDialog">
+  <div class="dialog-head"><h3>Export &amp; Druck</h3></div>
+  <div class="dialog-body">
+    <div class="stack-btns">
+      <button class="btn secondary" onclick="exportDialog.close(); exportExcel()">Excel-Datei (.xlsx) — Gesamtliste, Einkaufslisten &amp; Listen</button>
+      <button class="btn secondary" onclick="exportDialog.close(); exportCsv()">CSV — aktuelle Ansicht (für Excel &amp; Co.)</button>
+      <button class="btn secondary" onclick="exportDialog.close(); setTimeout(() => window.print(), 100)">Drucken / als PDF speichern — aktuelle Ansicht</button>
+    </div>
+  </div>
+  <div class="dialog-actions"><button class="btn secondary" onclick="exportDialog.close()">Schließen</button></div>
+</dialog>
+
+<datalist id="unitOptions">
+  <option value="g"></option><option value="kg"></option><option value="mg"></option>
+  <option value="ml"></option><option value="cl"></option><option value="dl"></option><option value="l"></option>
+  <option value="EL"></option><option value="TL"></option><option value="Stk"></option>
+  <option value="Bund"></option><option value="Prise"></option><option value="Dose"></option>
+  <option value="Glas"></option><option value="Packung"></option><option value="Scheibe"></option>
+  <option value="Zehe"></option><option value="Blatt"></option><option value="Würfel"></option>
+  <option value="Tasse"></option><option value="Flasche"></option>
+</datalist>
+
+<datalist id="categoryOptions">
+  <option value="Obst &amp; Gemüse"></option>
+  <option value="Brot &amp; Backwaren"></option>
+  <option value="Kühlregal"></option>
+  <option value="Tiefkühl"></option>
+  <option value="Trockenware &amp; Vorrat"></option>
+  <option value="Getränke"></option>
+  <option value="Drogerie &amp; Sonstiges"></option>
+</datalist>
+
+<datalist id="recipeTypeOptions">
+  <option value="Frühstück"></option>
+  <option value="Vorspeise"></option>
+  <option value="Hauptgericht"></option>
+  <option value="Beilage"></option>
+  <option value="Dessert"></option>
+  <option value="Getränk"></option>
+  <option value="Sonstiges"></option>
+</datalist>
+
+<dialog id="userAdminDialog" class="wide">
+  <div class="dialog-head"><h3>Systemverwaltung</h3></div>
+  <div class="dialog-body">
+    <div class="meta" style="margin-bottom:10px;">Rollen</div>
+    <div id="roleLegend" style="margin-bottom:18px;"></div>
+
+    <div class="meta" style="margin-bottom:10px;">Benutzer</div>
+    <div id="userAdminList"></div>
+    <div class="meta" style="margin:18px 0 6px;">Neuen Benutzer anlegen</div>
+    <label style="display:flex; align-items:center; gap:8px; font-size:13px; margin-bottom:10px;">
+      <input type="checkbox" id="newUserLocal" onchange="toggleNewUserLocal()"> Lokales Konto ohne E-Mail (nur Benutzername, kein „Passwort vergessen“ möglich)
+    </label>
+    <div class="add-row-form" style="margin-top:6px;">
+      <div class="field f-name"><label>Name</label><input id="newUserName" placeholder="Name"></div>
+      <div class="field f-name" id="newUserEmailField"><label>E-Mail</label><input id="newUserEmail" type="email" placeholder="name@beispiel.de"></div>
+      <div class="field f-name" id="newUserUsernameField" style="display:none;"><label>Benutzername</label><input id="newUserUsername" placeholder="z. B. papa"></div>
+      <div class="field f-supplier"><label>Start-Passwort</label><input id="newUserPassword" type="text" placeholder="min. 6 Zeichen"></div>
+      <div class="field f-unit" style="width:130px;"><label>Rolle</label>
+        <select id="newUserRole">
+          <option value="viewer">Betrachter</option>
+          <option value="editor">Bearbeiter</option>
+          <option value="lead">Projektleiter</option>
+          <option value="admin">Admin</option>
+        </select>
+      </div>
+      <button class="btn small" id="createUserBtn" onclick="createUser()">Anlegen</button>
+    </div>
+
+    <div class="meta" style="margin:22px 0 10px; padding-top:16px; border-top:1px solid var(--line);">Einkaufslisten</div>
+    <div id="supplierAdminList"></div>
+    <div class="add-row-form" style="margin-top:10px;">
+      <div class="field f-name"><label>Neue Einkaufsliste</label><input id="newSupplierName" placeholder="Name" onkeydown="if(event.key==='Enter')createSupplier()"></div>
+      <div class="field f-supplier"><label>Notiz (optional)</label><input id="newSupplierNote" placeholder="optional" onkeydown="if(event.key==='Enter')createSupplier()"></div>
+      <button class="btn small" onclick="createSupplier()">Anlegen</button>
+    </div>
+
+    <div class="meta" style="margin:22px 0 10px; padding-top:16px; border-top:1px solid var(--line);">Kategorien (Reihenfolge beim Einkauf)</div>
+    <div id="categoryAdminList"></div>
+    <div class="add-row-form" style="margin-top:10px;">
+      <div class="field f-name"><label>Neue Kategorie</label><input id="newCategoryName" placeholder="Name" onkeydown="if(event.key==='Enter')createCategory()"></div>
+      <button class="btn small" onclick="createCategory()">Anlegen</button>
+    </div>
+
+    <div class="meta" style="margin:22px 0 10px; padding-top:16px; border-top:1px solid var(--line);">Alle Projekte</div>
+    <div id="allProjectsList"></div>
+
+    <div class="meta" style="margin:22px 0 10px; padding-top:16px; border-top:1px solid var(--line);">App-Version</div>
+    <div class="add-row-form" style="margin-top:0;">
+      <div class="field f-name" style="max-width:160px;"><input id="versionInput" type="text"></div>
+      <button class="btn secondary small" onclick="saveVersion()">Speichern</button>
+    </div>
+
+    <div class="meta" style="margin:22px 0 10px; padding-top:16px; border-top:1px solid var(--line);">Sitzungsdauer (Standard)</div>
+    <p style="font-size:13px; color:var(--ink-soft); margin:0 0 12px;">Wie lange Benutzer angemeldet bleiben, wenn sie am Gerät nichts anderes gewählt haben. Die Dauer zählt ab der letzten Aktivität.</p>
+    <div class="add-row-form" style="margin-top:0;">
+      <div class="field"><label for="sessPwa">Installierte App</label><select id="sessPwa"></select></div>
+      <div class="field"><label for="sessBrowser">Im Browser</label><select id="sessBrowser"></select></div>
+      <button class="btn secondary small" id="sessSave" onclick="saveSessionDefaults()">Speichern</button>
+    </div>
+    <div class="meta" id="sessHint" style="display:none; margin-top:8px; color:var(--warn);">Noch nicht eingerichtet. Bitte einmal <b>supabase-etappe4.sql</b> im Supabase SQL Editor ausführen.</div>
+
+    <div class="meta" style="margin:22px 0 10px; padding-top:16px; border-top:1px solid var(--line);">Bilder</div>
+    <p style="font-size:13px; color:var(--ink-soft); margin:0 0 12px;">Neue Bilder werden im Supabase Storage gespeichert, das hält die App schnell. Bilder, die noch direkt in der Datenbank liegen, kannst du hier verschieben. Jedes Bild wird erst ersetzt, wenn der Upload geklappt hat.</p>
+    <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+      <button class="btn secondary small" id="imgMigrateBtn" onclick="migrateImages()">Bilder nach Storage verschieben</button>
+      <span class="meta" id="imgMigrateInfo" style="margin:0;"></span>
+    </div>
+
+    <div class="meta" style="margin:22px 0 10px; padding-top:16px; border-top:1px solid var(--line);">Papierkorb</div>
+    <p style="font-size:13px; color:var(--ink-soft); margin:0 0 12px;">Gelöschte Listen und Zutaten werden nach dieser Frist automatisch endgültig entfernt.</p>
+    <div class="add-row-form" style="margin-top:0;">
+      <div class="field"><label for="trashDaysSel">Aufbewahren für</label><select id="trashDaysSel"></select></div>
+      <button class="btn secondary small" id="trashSave" onclick="saveTrashDays()">Speichern</button>
+      <button class="btn secondary small" id="trashPurgeNow" onclick="purgeTrashNow()">Jetzt aufräumen</button>
+    </div>
+    <div class="meta" id="trashHint" style="display:none; margin-top:8px; color:var(--warn);">Noch nicht eingerichtet. Bitte einmal <b>supabase-etappe6.sql</b> im Supabase SQL Editor ausführen.</div>
+
+    <div class="meta" style="margin:22px 0 10px; padding-top:16px; border-top:1px solid var(--line);">Daten sichern &amp; übernehmen</div>
+    <p style="font-size:13px; color:var(--ink-soft); margin:0 0 12px;">Die <b>vollständige Sicherung</b> enthält alle Tabellen (auch Papierkorb, Rezepte, Einkaufslisten, Kategorien, Benutzer) und auf Wunsch die Bilder. Zusätzlich sichert der GitHub-Workflow die Datenbank jede Woche automatisch (siehe Anleitung).</p>
+    <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:6px;">
+      <button class="btn small" id="fullBackupBtn" onclick="downloadFullBackup()">Vollständige Sicherung herunterladen</button>
+      <label style="display:flex; align-items:center; gap:6px; font-size:13px;"><input type="checkbox" id="backupImages" checked> mit Bildern</label>
+    </div>
+    <div class="meta" id="backupInfo" style="margin:0 0 16px;"></div>
+    <p style="font-size:13px; color:var(--ink-soft); margin:0 0 12px;">Sichert alle Projekte, Listen und Zutaten als Datei. Der Import legt die Inhalte als <b>neue</b> Projekte an (auch aus der alten Version der App). Mitglieder müssen danach neu zugeordnet werden.</p>
+    <div style="display:flex; gap:8px; flex-wrap:wrap;">
+      <button class="btn secondary small" onclick="exportData()">Daten exportieren</button>
+      <button class="btn secondary small" onclick="document.getElementById('importFileInput').click()">Daten importieren</button>
+      <input type="file" id="importFileInput" accept="application/json" style="display:none" onchange="importData(event)">
+    </div>
+  </div>
+  <div class="dialog-actions"><button class="btn secondary" onclick="userAdminDialog.close()">Schließen</button></div>
+</dialog>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/config.js"></script>
+<script src="js/session.js"></script>
+<script src="js/state.js"></script>
+<script src="js/images.js"></script>
+<script src="js/helpers.js"></script>
+<script src="js/units.js"></script>
+<script src="js/data.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/sync.js"></script>
+<script src="js/render.js"></script>
+<script src="js/recipes.js"></script>
+<script src="js/actions.js"></script>
+<script src="js/admin.js"></script>
+<script src="js/merge.js"></script>
+<script src="js/export.js"></script>
+<script src="js/profile.js"></script>
+<script src="js/pwa.js"></script>
+<script src="js/start.js"></script>
+</body>
+</html>
