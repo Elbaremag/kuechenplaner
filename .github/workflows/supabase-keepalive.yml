@@ -1,0 +1,39 @@
+name: Supabase Keepalive
+
+# Verhindert, dass das Supabase-Projekt (Free-Tarif) wegen Inaktivität pausiert wird.
+# Ablegen unter: .github/workflows/supabase-keepalive.yml
+
+on:
+  schedule:
+    # Montag und Donnerstag, 06:17 UTC (bewusst nicht zur vollen Stunde)
+    - cron: "17 6 * * 1,4"
+  workflow_dispatch: {}   # manuell startbar unter Actions -> Run workflow
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Datenbank anpingen
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: |
+          set -euo pipefail
+          if [ -z "${SUPABASE_URL:-}" ] || [ -z "${SUPABASE_ANON_KEY:-}" ]; then
+            echo "Secrets SUPABASE_URL / SUPABASE_ANON_KEY fehlen."; exit 1
+          fi
+          # Alte anon-Keys (beginnen mit "eyJ") brauchen zusätzlich den Authorization-Header,
+          # neue publishable-Keys (sb_publishable_...) dürfen dort NICHT stehen.
+          auth=()
+          case "$SUPABASE_ANON_KEY" in eyJ*) auth=(-H "Authorization: Bearer $SUPABASE_ANON_KEY");; esac
+          code=$(curl -sS -o response.json -w "%{http_code}" \
+            --retry 3 --retry-delay 10 --max-time 30 \
+            -X POST "$SUPABASE_URL/rest/v1/rpc/keepalive" \
+            -H "apikey: $SUPABASE_ANON_KEY" "${auth[@]}" \
+            -H "Content-Type: application/json" \
+            -d '{}')
+          echo "HTTP-Status: $code"
+          cat response.json; echo
+          if [ "$code" -lt 200 ] || [ "$code" -ge 300 ]; then
+            echo "Ping fehlgeschlagen."; exit 1
+          fi
