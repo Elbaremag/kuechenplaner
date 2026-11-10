@@ -4,7 +4,7 @@
 // WICHTIG bei jeder neuen Auslieferung: VERSION erhöhen (z. B. 2026.11.20-1).
 // Dann erkennen Geräte die neue Version, die App zeigt „Neue Version verfügbar“,
 // und der alte Zwischenspeicher wird automatisch gelöscht.
-const VERSION = '2026.11.06-2';
+const VERSION = '2026.11.10-1';
 const CACHE = 'kombuese-' + VERSION;
 const ASSETS = [
   './',
@@ -28,6 +28,8 @@ const ASSETS = [
   './js/recipes.js',
   './js/actions.js',
   './js/admin.js',
+  './js/restore.js',
+  './js/legal.js',
   './js/merge.js',
   './js/export.js',
   './js/profile.js',

@@ -241,7 +241,7 @@ function renderListsTab(project, editable) {
           ${scaleNote(list)}
           ${items.length ? `
           <div class="overflow-wrap">
-          <table>
+          <table class="item-table">
             <thead><tr>${featBulk ? '<th style="width:30px;"></th>' : ''}<th>Bezeichnung</th><th class="num">Anzahl</th><th>Einheit</th><th class="num">Gesamtmenge</th>${featCat ? '<th>Kategorie</th>' : ''}<th>Einkaufsliste</th>${editable ? '<th></th>' : ''}</tr></thead>
             <tbody>
               ${items.map(i => {
@@ -251,11 +251,11 @@ function renderListsTab(project, editable) {
                 <tr class="${selectedItemIds.has(i.id) ? 'selected' : ''}">
                   ${featBulk ? `<td class="no-print"><input type="checkbox" ${selectedItemIds.has(i.id) ? 'checked' : ''} onchange="toggleItemSelect('${i.id}', this.checked)" aria-label="auswählen"></td>` : ''}
                   <td${tip ? ` title="${escapeHtml(tip)}"` : ''}>${escapeHtml(i.name)}${i.note ? ' 📝' : ''}${who ? `<div class="added-by">von ${escapeHtml(who)}</div>` : ''}</td>
-                  <td class="num">${fmtNum(Number(i.qty))}</td>
-                  <td>${escapeHtml(i.unit || '')}</td>
-                  <td class="num">${escapeHtml(formatAmount(effQty(i), i.unit))}</td>
-                  ${featCat ? `<td>${escapeHtml(i.category || '')}</td>` : ''}
-                  <td>${escapeHtml(i.supplier || '')}</td>
+                  <td class="num" data-l="Anzahl">${fmtNum(Number(i.qty))}</td>
+                  <td data-l="Einheit">${escapeHtml(i.unit || '')}</td>
+                  <td class="num" data-l="Gesamt">${escapeHtml(formatAmount(effQty(i), i.unit))}</td>
+                  ${featCat ? `<td data-l="Kategorie">${escapeHtml(i.category || '')}</td>` : ''}
+                  <td data-l="Einkaufsliste">${escapeHtml(i.supplier || '')}</td>
                   ${editable ? `<td class="no-print" style="white-space:nowrap;"><button class="icon-btn" onclick="openEditItem('${i.id}')" title="Zutat bearbeiten">✎</button><button class="icon-btn del" onclick="deleteItem('${i.id}')" title="Zutat löschen">✕</button></td>` : ''}
                 </tr>`;
               }).join('')}

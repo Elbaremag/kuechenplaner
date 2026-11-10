@@ -33,22 +33,31 @@ function renderUserAdminList() {
     </div>`).join('');
 }
 // Löschen geht nur über die Edge Function „delete-user“ (braucht den Service-Role-Key, der nie in die App darf)
+let deleteUserId = null;
 function deleteUser(id) {
   const u = db.profiles.find(p => p.id === id);
   if (!u || id === me.id || me.role !== 'admin') return;
-  openConfirm(`Benutzer „${u.name || u.email || u.username}“ endgültig löschen? Das Konto wird entfernt, die Person kann sich nicht mehr anmelden und verliert alle Projektzugänge. Projekte, Listen und Zutaten bleiben erhalten.`, async () => {
-    const { data, error } = await sb.functions.invoke('delete-user', { body: { user_id: id } });
-    let msg = null;
-    if (error) {
-      msg = /not found|404|Failed to send|FunctionsFetchError/i.test(error.message || '') || error.name === 'FunctionsFetchError'
-        ? 'Die Funktion „delete-user“ ist in Supabase noch nicht eingerichtet (siehe Anleitung).'
-        : friendlyError(error);
-      try { const b = error.context && await error.context.json(); if (b && b.error) msg = b.error; } catch (e) { /* ignore */ }
-    } else if (data && data.error) msg = data.error;
-    if (msg) { toast('Löschen fehlgeschlagen: ' + msg, null, null, true); return; }
-    await refresh();
-    toast(`Benutzer „${u.name || u.email || u.username}“ gelöscht.`);
-  }, 'Endgültig löschen');
+  deleteUserId = id;
+  $('duText').textContent = `Benutzer „${u.name || u.email || u.username}“ endgültig löschen?`;
+  document.querySelector('input[name="duProjects"][value="keep"]').checked = true;
+  deleteUserDialog.showModal();
+}
+async function runDeleteUser() {
+  const id = deleteUserId, u = db.profiles.find(p => p.id === id);
+  if (!u || id === me.id || me.role !== 'admin') return;
+  const mode = (document.querySelector('input[name="duProjects"]:checked') || {}).value || 'keep';
+  deleteUserDialog.close();
+  const { data, error } = await sb.functions.invoke('delete-user', { body: { user_id: id, projects: mode } });
+  let msg = null;
+  if (error) {
+    msg = /not found|404|Failed to send|FunctionsFetchError/i.test(error.message || '') || error.name === 'FunctionsFetchError'
+      ? 'Die Funktion „delete-user“ ist in Supabase noch nicht eingerichtet (siehe Anleitung).'
+      : friendlyError(error);
+    try { const b = error.context && await error.context.json(); if (b && b.error) msg = b.error; } catch (e) { /* ignore */ }
+  } else if (data && data.error) msg = data.error;
+  if (msg) { toast('Löschen fehlgeschlagen: ' + msg, null, null, true); return; }
+  await refresh();
+  toast(`Benutzer „${u.name || u.email || u.username}“ gelöscht.`);
 }
 async function setUserRole(id, role) {
   if (id === me.id) return;
@@ -355,7 +364,7 @@ async function downloadFullBackup() {
     }
     const payload = Object.assign(buildExportPayload(), {
       app: 'kombuese', kind: 'full-backup', schema: 1, full, images,
-      note: 'projects/lists/items lassen sich in der App über „Daten importieren“ als neue Projekte wiederherstellen. „full“ enthält alle Rohdaten, „images“ die Bilder (Schlüssel = Verweis aus recipes.image / profiles.avatar).'
+      note: 'Zurückspielen: Admin → „Sicherung wiederherstellen“. Alternativ legt „Daten importieren“ projects/lists/items als neue Projekte an. „full“ enthält alle Rohdaten, „images“ die Bilder (Schlüssel = Verweis aus recipes.image / profiles.avatar).'
     });
     downloadBlob(`kombuese-sicherung-${new Date().toISOString().slice(0, 10)}.json`, new Blob([JSON.stringify(payload)], { type: 'application/json' }));
     if (db.settings && 'last_backup_at' in db.settings) {

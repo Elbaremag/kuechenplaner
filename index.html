@@ -61,6 +61,7 @@
       <button class="link-btn" type="button" onclick="openRegisterDialog()">Konto registrieren</button>
     </div>
     <div class="login-hint">Neue Konten warten nach der Registrierung auf Freischaltung durch einen Admin.</div>
+    <div class="login-hint"><button class="link-btn" type="button" onclick="openLegal()">Datenschutz &amp; Impressum</button></div>
   </div>
 </div>
 
@@ -338,6 +339,28 @@
   </div>
 </dialog>
 
+<dialog id="legalDialog">
+  <div class="dialog-head"><h3>Datenschutz &amp; Impressum</h3></div>
+  <div class="dialog-body legal" id="legalBody"></div>
+  <div class="dialog-actions"><button class="btn" onclick="legalDialog.close()">Schließen</button></div>
+</dialog>
+
+<dialog id="deleteUserDialog">
+  <div class="dialog-head"><h3>Benutzer löschen</h3></div>
+  <div class="dialog-body">
+    <p id="duText" style="margin-top:0"></p>
+    <p style="font-weight:600; margin-bottom:6px;">Was geschieht mit den Projekten, die diese Person angelegt hat?</p>
+    <label class="radio-row"><input type="radio" name="duProjects" value="keep" checked> <span><b>Behalten</b> (Ersteller bleibt leer)</span></label>
+    <label class="radio-row"><input type="radio" name="duProjects" value="transfer"> <span><b>An mich übertragen</b> (ich werde als Ersteller eingetragen)</span></label>
+    <label class="radio-row"><input type="radio" name="duProjects" value="delete"> <span><b>Mitlöschen</b> samt Listen und Zutaten (nicht rückgängig zu machen)</span></label>
+    <p style="font-size:13px; color:var(--ink-soft); margin-bottom:0">Das Konto wird entfernt; die Person kann sich nicht mehr anmelden und verliert alle Projektzugänge.</p>
+  </div>
+  <div class="dialog-actions">
+    <button class="btn secondary" onclick="deleteUserDialog.close()">Abbrechen</button>
+    <button class="btn danger" id="duYes" onclick="runDeleteUser()">Endgültig löschen</button>
+  </div>
+</dialog>
+
 <dialog id="confirmDialog">
   <div class="dialog-head"><h3 id="confirmTitle">Bestätigen</h3></div>
   <div class="dialog-body" id="confirmBody"></div>
@@ -376,6 +399,7 @@
     <div class="field"><label for="pfSession">Angemeldet bleiben (nur dieses Gerät)</label><select id="pfSession" onchange="setSessionPref(this.value)"></select>
       <div class="meta" style="margin-top:6px;">Die Dauer zählt ab deiner letzten Aktivität. Auf gemeinsam genutzten Geräten besser „Bis zum Schließen“ wählen.</div></div>
     <div class="meta" id="pfAppVersion" style="margin:0;"></div>
+    <div class="meta" style="margin:6px 0 0;"><button class="link-btn" type="button" onclick="openLegal()">Datenschutz &amp; Impressum</button></div>
   </div>
   <div class="dialog-actions">
     <button class="btn secondary" onclick="profileDialog.close(); openPasswordDialog(false)">Passwort ändern</button>
@@ -509,18 +533,26 @@
       <button class="btn small" id="fullBackupBtn" onclick="downloadFullBackup()">Vollständige Sicherung herunterladen</button>
       <label style="display:flex; align-items:center; gap:6px; font-size:13px;"><input type="checkbox" id="backupImages" checked> mit Bildern</label>
     </div>
-    <div class="meta" id="backupInfo" style="margin:0 0 16px;"></div>
-    <p style="font-size:13px; color:var(--ink-soft); margin:0 0 12px;">Sichert alle Projekte, Listen und Zutaten als Datei. Der Import legt die Inhalte als <b>neue</b> Projekte an (auch aus der alten Version der App). Mitglieder müssen danach neu zugeordnet werden.</p>
+    <div class="meta" id="backupInfo" style="margin:0 0 12px;"></div>
+    <p style="font-size:13px; color:var(--ink-soft); margin:0 0 12px;"><b>Einzelne Projekte:</b> Sichert alle Projekte, Listen und Zutaten als Datei. Der Import legt die Inhalte als <b>neue</b> Projekte an (auch aus der alten Version der App). Mitglieder müssen danach neu zugeordnet werden.</p>
     <div style="display:flex; gap:8px; flex-wrap:wrap;">
       <button class="btn secondary small" onclick="exportData()">Daten exportieren</button>
       <button class="btn secondary small" onclick="document.getElementById('importFileInput').click()">Daten importieren</button>
       <input type="file" id="importFileInput" accept="application/json" style="display:none" onchange="importData(event)">
     </div>
+    <div style="border-top:1px solid var(--line); margin-top:18px; padding-top:14px;">
+    <p style="font-size:13px; color:var(--ink-soft); margin:0 0 12px;"><b>Sicherung wiederherstellen:</b> spielt eine vollständige Sicherung zurück: Projekte, Listen, Zutaten, Rezepte, Kategorien und Bilder kommen mit ihren ursprünglichen Einträgen zurück. Es wird nichts gelöscht. Benutzerkonten und Rollen sind nicht enthalten; sie bleiben, wie sie jetzt sind.</p>
+    <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:6px;">
+      <button class="btn secondary small" id="restoreBtn" onclick="pickRestoreFile()">Sicherung wiederherstellen …</button>
+      <input type="file" id="restoreFileInput" accept="application/json" style="display:none" onchange="restoreFromBackup(event)">
+    </div>
+    <div class="meta" id="restoreInfo" style="margin:0 0 16px;"></div>
+    </div>
   </div>
   <div class="dialog-actions"><button class="btn secondary" onclick="userAdminDialog.close()">Schließen</button></div>
 </dialog>
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.109.0"></script>
 <script src="js/config.js"></script>
 <script src="js/session.js"></script>
 <script src="js/state.js"></script>
@@ -534,6 +566,8 @@
 <script src="js/recipes.js"></script>
 <script src="js/actions.js"></script>
 <script src="js/admin.js"></script>
+<script src="js/restore.js"></script>
+<script src="js/legal.js"></script>
 <script src="js/merge.js"></script>
 <script src="js/export.js"></script>
 <script src="js/profile.js"></script>
